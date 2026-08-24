@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -17,28 +16,28 @@ func main() {
 		log.Println("warning: no .env file loaded:", err)
 	}
 
-    dbUser, dbPassword, err := config.LoadDbEnvVars()
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    connStr := fmt.Sprintf("postgres://%s:%s@localhost:5432/fready?sslmode=disable", dbUser, dbPassword)
-    conn, err := database.Connect(connStr)
-    if err != nil {
-        log.Println(err)
-        return
-    } else {
-		log.Println("DB connected with migrations being run")
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Config load error: %v", err)
 	}
 
-    repo := user.NewRepository(conn)
-    service := user.NewService(repo)
-    handler := user.NewHandler(service)
+	conn, err := database.Connect(cfg.DB.DSN())
+	if err != nil {
+		log.Fatalf("Database connection error: %v", err)
+	}
+	defer conn.Close()
 
-    mux := http.NewServeMux()
-    mux.HandleFunc("GET /users/{id}", handler.GetUser)
-    mux.HandleFunc("POST /users", handler.RegisterUser)
-	mux.HandleFunc("GET /users", handler.GetUsers)
-    log.Println("Listening on 8080")
-    log.Fatal(http.ListenAndServe(":8080", mux))
+	log.Println("DB connected successfully with migrations executed")
+
+	userRepo := user.NewRepository(conn)
+	userService := user.NewService(userRepo)
+	userHandler := user.NewHandler(userService)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /users/{id}", userHandler.GetUser)
+	mux.HandleFunc("POST /users", userHandler.RegisterUser)
+	mux.HandleFunc("GET /users", userHandler.GetUsers)
+
+	log.Printf("Listening on port %s...", cfg.App.Port)
+	log.Fatal(http.ListenAndServe(":"+cfg.App.Port, mux))
 }
