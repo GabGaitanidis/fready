@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	"fready/internal/auth"
+	"fready/internal/auth/session"
 	"fready/internal/config"
 	"fready/internal/database"
 	"fready/internal/user"
@@ -28,15 +30,15 @@ func main() {
 	defer conn.Close()
 
 	log.Println("DB connected successfully with migrations executed")
-
-	userRepo := user.NewRepository(conn)
-	userService := user.NewService(userRepo)
-	userHandler := user.NewHandler(userService)
-
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /users/{id}", userHandler.GetUser)
-	mux.HandleFunc("POST /users", userHandler.RegisterUser)
-	mux.HandleFunc("GET /users", userHandler.GetUsers)
+
+    userService := user.NewRouter().RegisterRoutes(mux, conn)
+
+    sessionRepo := session.NewSessionRepository(conn)
+    sessionService := session.NewService(sessionRepo)
+
+    auth.NewRouter().RegisterRoutes(mux, userService, sessionService)
+
 
 	log.Printf("Listening on port %s...", cfg.App.Port)
 	log.Fatal(http.ListenAndServe(":"+cfg.App.Port, mux))

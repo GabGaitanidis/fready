@@ -47,19 +47,20 @@ func (s *service) CreateSession(ctx context.Context, userID uuid.UUID) (*Session
 }
 
 func (s *service) GetSession(ctx context.Context, sessionID string) (*Session, error) {
-	if sessionID == "" {
-		return nil, errors.New("session ID is required")
-	}
+    if sessionID == "" {
+        return nil, errors.New("session ID is required")
+    }
 
-	sess, err := s.repo.GetSessionByID(ctx, sessionID)
-	if err != nil  {
-		return nil, errors.New("invalid or expired session")
-	}
+    sess, err := s.repo.GetSessionByID(ctx, sessionID)
+    if err != nil {
+        return nil, errors.New("invalid or expired session")
+    }
 
-	if CheckSessionLife(sess) == false {
-		return nil, errors.New("Session expired")
-	}
-	return sess, nil
+    if CheckSessionLife(sess) {
+        return nil, errors.New("session expired")
+    }
+
+    return sess, nil
 }
 
 func (s *service) RevokeSession(ctx context.Context, sessionID string) error {
