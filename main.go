@@ -8,6 +8,7 @@ import (
 	"fready/internal/auth/session"
 	"fready/internal/config"
 	"fready/internal/database"
+	"fready/internal/group"
 	"fready/internal/user"
 
 	"github.com/joho/godotenv"
@@ -36,7 +37,8 @@ func main() {
 
     sessionRepo := session.NewSessionRepository(conn)
     sessionService := session.NewService(sessionRepo)
-
+	groupService := group.NewRouter().RegisterRoutes(mux, conn, sessionService)
+	_ = groupService
     auth.NewRouter().RegisterRoutes(mux, userService, sessionService)
 
 

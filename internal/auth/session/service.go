@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,8 +13,8 @@ type Service interface {
 	CreateSession(ctx context.Context, userID uuid.UUID) (*Session, error)
 	GetSession(ctx context.Context, sessionID string) (*Session, error)
 	RevokeSession(ctx context.Context, sessionID string) error
+	CurrentUserID(r *http.Request) (uuid.UUID, error)
 }
-
 type service struct {
 	repo SessionRepository
 }
@@ -73,4 +74,18 @@ func (s *service) RevokeSession(ctx context.Context, sessionID string) error {
 
 func CheckSessionLife(s *Session) bool {
 	return time.Now().After(s.ExpiresAt)
+}
+
+func (s *service) CurrentUserID(r *http.Request) (uuid.UUID, error) {
+	cookie, err := r.Cookie("session_id")
+	if err != nil {
+		return uuid.Nil, errors.New("not authenticated")
+	}
+
+	sess, err := s.GetSession(r.Context(), cookie.Value)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return sess.UserID, nil
 }

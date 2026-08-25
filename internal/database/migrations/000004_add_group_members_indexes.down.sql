@@ -1,0 +1,1 @@
+DROP INDEX idx_group_members_user_id;
