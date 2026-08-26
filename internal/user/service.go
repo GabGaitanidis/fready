@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -58,9 +59,10 @@ func (s *service) RegisterUser(ctx context.Context, name, email, password string
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, err
-	}
+    if err != nil {
+        slog.Error("bcrypt hash generation failed", "error", err)
+        return nil, err
+    }
 
 	u := &User{
 		ID:           uuid.New(),
@@ -70,8 +72,9 @@ func (s *service) RegisterUser(ctx context.Context, name, email, password string
 	}
 
 	if err := s.repo.Create(ctx, u); err != nil {
-		return nil, err
-	}
+        slog.Error("failed to create user", "error", err, "email", email)
+        return nil, err
+    }
 	
 	return u, nil
 }

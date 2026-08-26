@@ -2,19 +2,26 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"fready/internal/auth"
 	"fready/internal/auth/session"
 	"fready/internal/config"
 	"fready/internal/database"
 	"fready/internal/group"
+	"fready/internal/middlewares"
 	"fready/internal/user"
 
 	"github.com/joho/godotenv"
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With(
+		"service", "fready",
+	)
+	slog.SetDefault(logger)
 	if err := godotenv.Load(); err != nil {
 		log.Println("warning: no .env file loaded:", err)
 	}
@@ -24,10 +31,13 @@ func main() {
 		log.Fatalf("Config load error: %v", err)
 	}
 
+	
 	conn, err := database.Connect(cfg.DB.DSN())
 	if err != nil {
-		log.Fatalf("Database connection error: %v", err)
+		slog.Error("failed to connect to database", "error", err)
+		return
 	}
+	slog.Info("database connected")
 	defer conn.Close()
 
 	log.Println("DB connected successfully with migrations executed")
@@ -42,6 +52,6 @@ func main() {
     auth.NewRouter().RegisterRoutes(mux, userService, sessionService)
 
 
-	log.Printf("Listening on port %s...", cfg.App.Port)
-	log.Fatal(http.ListenAndServe(":"+cfg.App.Port, mux))
+	slog.Info("server starting", "port", "8080")
+	log.Fatal(http.ListenAndServe(":8080", middlewares.LoggingMiddleware(mux)))
 }

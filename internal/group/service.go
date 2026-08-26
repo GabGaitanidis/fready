@@ -3,6 +3,7 @@ package group
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/google/uuid"
 )
@@ -40,9 +41,12 @@ func (s *service) CreateGroup(ctx context.Context, name string, ownerID uuid.UUI
 	}
 
 	if err := s.repo.Create(ctx, g); err != nil {
-		return nil, err
-	}
-	return g, nil
+        slog.Error("failed to create group", "error", err, "owner_id", ownerID)
+        return nil, err
+    }
+
+    slog.Info("group created", "group_id", g.ID, "owner_id", ownerID)
+    return g, nil
 }
 
 func (s *service) GetGroup(ctx context.Context, id uuid.UUID) (*Group, error) {
@@ -76,7 +80,13 @@ func (s *service) AddMember(ctx context.Context, groupID, requesterID, newMember
 		return errors.New("user is already a member of this group")
 	}
 
-	return s.repo.AddMember(ctx, groupID, newMemberID)
+	if err := s.repo.AddMember(ctx, groupID, newMemberID); err != nil {
+        slog.Error("failed to add group member", "error", err, "group_id", groupID)
+        return err
+    }
+
+    slog.Info("member added to group", "group_id", groupID, "user_id", newMemberID, "added_by", requesterID)
+    return nil
 }
 
 func (s *service) RemoveMember(ctx context.Context, groupID, requesterID, memberID uuid.UUID) error {

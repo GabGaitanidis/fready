@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -35,11 +36,12 @@ func (s *service) CreateSession(ctx context.Context, userID uuid.UUID) (*Session
 
 	expiresAt := time.Now().Add(24 * time.Hour)
 
-	err = s.repo.CreateSession(ctx, sessionID, userID, expiresAt)
-	if err != nil {
-		return nil, err
-	}
+	if err := s.repo.CreateSession(ctx, sessionID, userID, expiresAt); err != nil {
+        slog.Error("failed to persist session", "error", err, "user_id", userID)
+        return nil, err
+    }
 
+    slog.Info("session created", "user_id", userID)
 	return &Session{
 		ID:        sessionID,
 		UserID:    userID,
