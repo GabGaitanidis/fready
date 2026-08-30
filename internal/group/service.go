@@ -68,8 +68,18 @@ func (s *service) AddMember(ctx context.Context, groupID, requesterID, newMember
 	if err != nil {
 		return err
 	}
+
 	if !isOwner {
 		return errors.New("only the group owner can add members")
+	}
+
+	members, err := s.repo.ListMembers(ctx, groupID)
+	if err != nil {
+		return err
+	}
+
+	if len(members) >= 20 {
+		return errors.New("Cant add more than 20 members")
 	}
 
 	alreadyMember, err := s.repo.IsMember(ctx, groupID, newMemberID)
