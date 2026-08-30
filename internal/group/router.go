@@ -2,6 +2,7 @@ package group
 
 import (
 	"database/sql"
+	"fready/internal/auth/session"
 	"net/http"
 )
 
@@ -11,7 +12,7 @@ func NewRouter() *Router {
 	return &Router{}
 }
 
-func (r *Router) RegisterRoutes(mux *http.ServeMux, db *sql.DB, sessionService SessionService) Service {
+func (r *Router) RegisterRoutes(mux *http.ServeMux, db *sql.DB, sessionService session.Service) Service {
 	repo := NewRepository(db)
 	service := NewService(repo)
 	handler := NewHandler(service, sessionService)

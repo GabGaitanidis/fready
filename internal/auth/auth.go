@@ -29,6 +29,11 @@ func NewHandler(su user.Service, ss session.Service) *Handler {
 }
 
 func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
+    _, err := h.sessionService.CurrentUserID(r)
+    if err == nil {
+        http.Error(w, "Already authenticated", http.StatusBadRequest)
+        return
+    }
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid body", http.StatusBadRequest)
@@ -52,7 +57,7 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		Value:    session.ID,
 		Expires:  session.ExpiresAt,
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})

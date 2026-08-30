@@ -26,16 +26,16 @@ type Hub struct {
 	groups      map[uuid.UUID]map[*connection]bool
 
 	wsConnFactory websocket.Upgrader
-	broadcast chan groupBroadcast
+	Broadcast chan GroupBroadcast
 	register   chan registration
 	unregister chan *connection
-	incomingLocation chan locationEvent
+	IncomingLocation chan LocationEvent
 }
 
-type groupBroadcast struct {
-	groupID       uuid.UUID
-	excludeUserID uuid.UUID
-	payload       []byte
+type GroupBroadcast struct {
+	GroupID       uuid.UUID
+	ExcludeUserID uuid.UUID
+	Payload       []byte
 }
 
 func New() *Hub {
@@ -44,8 +44,8 @@ func New() *Hub {
 		groups:      make(map[uuid.UUID]map[*connection]bool),
 		register:    make(chan registration),
 		unregister:  make(chan *connection),
-		broadcast:   make(chan groupBroadcast),
-		incomingLocation: make(chan locationEvent),
+		Broadcast:   make(chan GroupBroadcast),
+		IncomingLocation: make(chan LocationEvent),
 		wsConnFactory: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -57,17 +57,22 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request, userID uuid.UUID
 	if err != nil {
 		slog.Error("websocket upgrade failed", "error", err)
 		return
+	} else {
+		slog.Info("Upgraded to websockets!!!")
 	}
 
 	c := &connection{
-		send:   make(chan []byte, 256),
-		ws:     ws,
-		hub:    h,
-		userID: userID,
+			send:     make(chan []byte, 256),
+			ws:       ws,
+			hub:      h,
+			userID:   userID,
+			groupIDs: groupIDs,
+		}
+
+	h.register <- registration{
+		conn:     c,
+		groupIDs: groupIDs,
 	}
-
-	h.register <- registration{conn: c, groupIDs: groupIDs}
-
 	go c.listenWrite()
 	c.listenRead()
 }
@@ -90,34 +95,32 @@ func (h *Hub) doUnregister(c *connection) {
 	defer h.Unlock()
 
 	delete(h.connections, c)
-
-	for groupID, conns := range h.groups {
-		if ok := conns[c]; ok {
-			delete(conns, c)
-			if len(conns) == 0 {
-				delete(h.groups, groupID)
-			}
-		}
-	}
-
+	for _, groupID := range c.groupIDs {
+        if conns, ok := h.groups[groupID]; ok {
+            delete(conns, c)
+            if len(conns) == 0 {
+                delete(h.groups, groupID)
+            }
+        }
+    }
+	c.close()
 
 }
 
-func (h *Hub) doBroadcast(b groupBroadcast) {
+func (h *Hub) DoBroadcast(b GroupBroadcast) {
 	h.Lock()
-	defer h.Unlock()
-
-	conns, ok := h.groups[b.groupID]
+	defer h.Unlock()	
+	conns, ok := h.groups[b.GroupID]
 	if !ok {
 		return
 	}
 
 	for c := range conns {
-		if c.userID == b.excludeUserID {
+		if c.userID == b.ExcludeUserID {
 			continue
 		}
 		select {
-		case c.send <- b.payload:
+		case c.send <- b.Payload:
 		default:
 			slog.Warn("dropping message, send buffer full", "user_id", c.userID)
 		}
@@ -130,8 +133,8 @@ func (h *Hub) Run() {
 			h.doRegister(reg.conn, reg.groupIDs)
 		case c := <-h.unregister:
 			h.doUnregister(c)
-		case b := <-h.broadcast:
-			h.doBroadcast(b)
+		case b := <-h.Broadcast:
+			h.DoBroadcast(b)
 		}
 	}
 }

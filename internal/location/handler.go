@@ -22,7 +22,7 @@ func NewHandler(s Service, ss SessionService) *Handler {
 
 type updateLocationRequest struct {
 	Lat float64 `json:"lat"`
-	Lng float64 `json:"lng"`
+	Lng float64 `json:"lon"`
 }
 
 func (h *Handler) UpdateLocation(w http.ResponseWriter, r *http.Request) {

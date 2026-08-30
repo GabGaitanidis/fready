@@ -2,6 +2,7 @@ package group
 
 import (
 	"encoding/json"
+	"fready/internal/auth/session"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -9,14 +10,12 @@ import (
 
 type Handler struct {
 	service        Service
-	sessionService SessionService
+	sessionService session.Service
 }
 
-type SessionService interface {
-	CurrentUserID(r *http.Request) (uuid.UUID, error)
-}
 
-func NewHandler(s Service, ss SessionService) *Handler {
+
+func NewHandler(s Service, ss session.Service) *Handler {
 	return &Handler{service: s, sessionService: ss}
 }
 

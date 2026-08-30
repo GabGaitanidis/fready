@@ -25,10 +25,12 @@ type connection struct {
     userID uuid.UUID
     hub    *Hub
     once   sync.Once 
+	groupIDs []uuid.UUID
 }
-type locationEvent struct {
-	userID uuid.UUID
-	update LocationUpdate
+type LocationEvent struct {
+	UserID uuid.UUID
+	GroupIDs []uuid.UUID
+	Update LocationUpdate
 }
 
 type LocationUpdate struct {
@@ -57,6 +59,7 @@ func (c *connection) listenRead() {
 
 	for {
 		_, message, err := c.ws.ReadMessage()
+		slog.Info("Message red")
 		if err != nil {
 			slog.Info("websocket read closed", "user_id", c.userID, "error", err)
 			break
@@ -68,7 +71,7 @@ func (c *connection) listenRead() {
 			continue	
 		}
 
-		c.hub.incomingLocation <- locationEvent{userID: c.userID, update: update}
+		c.hub.IncomingLocation <- LocationEvent{UserID: c.userID, Update: update}
 	}
 }
 
