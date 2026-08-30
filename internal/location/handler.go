@@ -2,6 +2,8 @@ package location
 
 import (
 	"encoding/json"
+	"fready/internal/response"
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -22,28 +24,28 @@ func NewHandler(s Service, ss SessionService) *Handler {
 
 type updateLocationRequest struct {
 	Lat float64 `json:"lat"`
-	Lng float64 `json:"lon"`
+	Lng float64 `json:"lng"`
 }
 
 func (h *Handler) UpdateLocation(w http.ResponseWriter, r *http.Request) {
 	userID, err := h.sessionService.CurrentUserID(r)
 	if err != nil {
-		http.Error(w, "Not authenticated", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "Not authenticated")
 		return
 	}
 
 	var req updateLocationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid body", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, "Invalid body")
 		return
 	}
 
 	ping, err := h.service.UpdateLocation(r.Context(), userID, req.Lat, req.Lng)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		slog.Warn("location update rejected", "error", err, "user_id", userID)
+		response.Error(w, http.StatusBadRequest, "Invalid location update")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ping)
+	response.Success(w, http.StatusOK, ping)
 }

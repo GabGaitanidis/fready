@@ -16,7 +16,6 @@ func (r *Router) RegisterRoutes(mux *http.ServeMux, db *sql.DB) Service {
     userService := NewService(userRepo)
     userHandler := NewHandler(userService)
 
-    mux.HandleFunc("GET /users/{id}", userHandler.GetMe)
     mux.HandleFunc("GET /users", userHandler.GetUsers)
 
     return userService

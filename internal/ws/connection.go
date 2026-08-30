@@ -35,7 +35,7 @@ type LocationEvent struct {
 
 type LocationUpdate struct {
     Lat float64 `json:"lat"`
-    Lon float64 `json:"lon"` 
+    Lng float64 `json:"lng"` 
 }
 
 func (c *connection) close() {
