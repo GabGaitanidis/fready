@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"log/slog"
 	"net/http"
@@ -53,14 +54,15 @@ func main() {
 	groupService := group.NewRouter().RegisterRoutes(mux, conn, sessionService)
 	_ = groupService
 	locationService := location.NewRouter().RegisterRoutes(mux, conn, sessionService)
-	_ = locationService
     auth.NewRouter().RegisterRoutes(mux, userService, sessionService)
 
 	hub := ws.New()
-	ws.NewRouter().RegisterRoutes(mux, hub, sessionService)
-	
-	go hub.Run()
+	ws.NewRouter().RegisterRoutes(mux, hub, sessionService, groupService)
+	go locationService.StartConsumer(context.Background(), hub.IncomingLocation, hub)
 
+
+	go hub.Run()
+	
 	slog.Info("server starting", "port", "8080")
 	log.Fatal(http.ListenAndServe(":8080", middlewares.LoggingMiddleware(mux)))
 }
