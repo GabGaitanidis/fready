@@ -12,6 +12,7 @@ type SessionRepository interface {
 	CreateSession(ctx context.Context, sessionID string, userID uuid.UUID, expiresAt time.Time) error
 	GetSessionByID(ctx context.Context, sessionID string) (*Session, error)
 	DeleteSession(ctx context.Context, sessionID string) error
+	DeleteExpiredSessions(ctx context.Context) error
 }
 
 type postgresSessionRepository struct {
@@ -39,5 +40,10 @@ func (r *postgresSessionRepository) GetSessionByID(ctx context.Context, sessionI
 
 func (r *postgresSessionRepository) DeleteSession(ctx context.Context, sessionID string) error {
 	_, err := r.db.ExecContext(ctx, "DELETE FROM sessions WHERE id = $1", sessionID)
+	return err
+}
+
+func (r *postgresSessionRepository) DeleteExpiredSessions(ctx context.Context) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at <= $1`, time.Now())
 	return err
 }

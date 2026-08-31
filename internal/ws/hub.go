@@ -38,7 +38,7 @@ type GroupBroadcast struct {
 	Payload       []byte
 }
 
-func New() *Hub {
+func New(allowedOrigins []string) *Hub {
 	return &Hub{
 		connections: make(map[*connection]uuid.UUID),
 		groups:      make(map[uuid.UUID]map[*connection]bool),
@@ -49,6 +49,18 @@ func New() *Hub {
 		wsConnFactory: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
+			CheckOrigin: func(r *http.Request) bool {
+				origin := r.Header.Get("Origin")
+				allowedOrigins := []string{
+					"http://localhost:8443", 
+				}
+				for _, allowed := range allowedOrigins {
+					if allowed == origin {
+						return true
+					}
+				}
+				return false
+			},
 		},
 	}
 }

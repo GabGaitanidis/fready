@@ -17,5 +17,10 @@ type Member struct {
 	GroupID  uuid.UUID `json:"group_id"`
 	UserID   uuid.UUID `json:"user_id"`
 	JoinedAt time.Time `json:"joined_at"`
-	IsOwner bool `json:"is_owner"`
+}
+
+type MemberInfo struct {
+	UserID uuid.UUID `json:"user_id"`
+	Name   string    `json:"name"`
+	Email  string    `json:"email"`
 }

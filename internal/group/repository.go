@@ -11,11 +11,12 @@ type Repository interface {
 	Create(ctx context.Context, g *Group) error
 	GetByID(ctx context.Context, id uuid.UUID) (*Group, error)
 	ListForUser(ctx context.Context, userID uuid.UUID) ([]Group, error)
+
 	AddMember(ctx context.Context, groupID, userID uuid.UUID) error
 	RemoveMember(ctx context.Context, groupID, userID uuid.UUID) error
-	ListMembers(ctx context.Context, groupID uuid.UUID) ([]uuid.UUID, error)
-	IsOwner(ctx context.Context, groupID, userID uuid.UUID) (bool, error)
+	ListMembers(ctx context.Context, groupID uuid.UUID) ([]MemberInfo, error)
 	IsMember(ctx context.Context, groupID, userID uuid.UUID) (bool, error)
+	IsOwner(ctx context.Context, groupID, userID uuid.UUID) (bool, error)
 }
 
 type postgresRepository struct {
@@ -27,27 +28,27 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *postgresRepository) Create(ctx context.Context, g *Group) error {
-    tx, err := r.db.BeginTx(ctx, nil)
-    if err != nil {
-        return err
-    }
-    defer tx.Rollback() 
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 
-    _, err = tx.ExecContext(ctx,
-        "INSERT INTO groups (id, name, owner_id) VALUES ($1, $2, $3)",
-        g.ID, g.Name, g.OwnerID)
-    if err != nil {
-        return err
-    }
+	_, err = tx.ExecContext(ctx,
+		"INSERT INTO groups (id, name, owner_id) VALUES ($1, $2, $3)",
+		g.ID, g.Name, g.OwnerID)
+	if err != nil {
+		return err
+	}
 
-    _, err = tx.ExecContext(ctx,
-        "INSERT INTO group_members (group_id, user_id, is_owner) VALUES ($1, $2, $3)",
-        g.ID, g.OwnerID, true)
-    if err != nil {
-        return err
-    }
+	_, err = tx.ExecContext(ctx,
+		"INSERT INTO group_members (group_id, user_id, is_owner) VALUES ($1, $2, $3)",
+		g.ID, g.OwnerID, true)
+	if err != nil {
+		return err
+	}
 
-    return tx.Commit()
+	return tx.Commit()
 }
 
 func (r *postgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Group, error) {
@@ -80,10 +81,7 @@ func (r *postgresRepository) ListForUser(ctx context.Context, userID uuid.UUID) 
 		}
 		groups = append(groups, g)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return groups, nil
+	return groups, rows.Err()
 }
 
 func (r *postgresRepository) AddMember(ctx context.Context, groupID, userID uuid.UUID) error {
@@ -100,26 +98,26 @@ func (r *postgresRepository) RemoveMember(ctx context.Context, groupID, userID u
 	return err
 }
 
-func (r *postgresRepository) ListMembers(ctx context.Context, groupID uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := r.db.QueryContext(ctx,
-		"SELECT user_id FROM group_members WHERE group_id = $1", groupID)
+func (r *postgresRepository) ListMembers(ctx context.Context, groupID uuid.UUID) ([]MemberInfo, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT u.id, u.name, u.email
+		FROM group_members gm
+		JOIN users u ON u.id = gm.user_id
+		WHERE gm.group_id = $1`, groupID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	ids := []uuid.UUID{}
+	members := []MemberInfo{}
 	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
+		var m MemberInfo
+		if err := rows.Scan(&m.UserID, &m.Name, &m.Email); err != nil {
 			return nil, err
 		}
-		ids = append(ids, id)
+		members = append(members, m)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return ids, nil
+	return members, rows.Err()
 }
 
 func (r *postgresRepository) IsMember(ctx context.Context, groupID, userID uuid.UUID) (bool, error) {
@@ -131,10 +129,12 @@ func (r *postgresRepository) IsMember(ctx context.Context, groupID, userID uuid.
 }
 
 func (r *postgresRepository) IsOwner(ctx context.Context, groupID, userID uuid.UUID) (bool, error) {
-    var isOwner bool
-    err := r.db.QueryRowContext(ctx, "SELECT is_owner FROM group_members WHERE group_id = $1 AND user_id = $2", groupID, userID).Scan(&isOwner)
+	var isOwner bool
+	err := r.db.QueryRowContext(ctx,
+		"SELECT is_owner FROM group_members WHERE group_id = $1 AND user_id = $2",
+		groupID, userID).Scan(&isOwner)
 	if err == sql.ErrNoRows {
-        return false, nil
-    }
-    return isOwner, err
+		return false, nil
+	}
+	return isOwner, err
 }

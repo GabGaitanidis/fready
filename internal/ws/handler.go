@@ -3,6 +3,8 @@ package ws
 import (
 	"fready/internal/auth/session"
 	"fready/internal/group"
+	"fready/internal/response"
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -12,13 +14,14 @@ func HandleWS(hub *Hub, sessionSvc session.Service, groupService group.Service) 
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, err := sessionSvc.CurrentUserID(r)
 		if err != nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			response.Error(w, http.StatusUnauthorized, "Not authenticated")
 			return
 		}
 
 		groups, err := groupService.ListMyGroups(r.Context(), userID)
 		if err != nil {
-			http.Error(w, "Failed to retrieve groups", http.StatusInternalServerError)
+			slog.Error("failed to list groups for websocket connection", "error", err, "user_id", userID)
+			response.Error(w, http.StatusInternalServerError, "Failed to retrieve groups")
 			return
 		}
 

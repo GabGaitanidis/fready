@@ -11,7 +11,7 @@ import (
 )
 
 type Service interface {
-	UpdateLocation(ctx context.Context, userID uuid.UUID, lat, lon float64) (*LocationPing, error)
+	UpdateLocation(ctx context.Context, userID uuid.UUID, lat, lng float64) (*LocationPing, error)
 	StartConsumer(ctx context.Context, incoming <-chan ws.LocationEvent, hub *ws.Hub)
 }
 
@@ -23,18 +23,18 @@ func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
-func (s *service) UpdateLocation(ctx context.Context, userID uuid.UUID, lat, lon float64) (*LocationPing, error) {
+func (s *service) UpdateLocation(ctx context.Context, userID uuid.UUID, lat, lng float64) (*LocationPing, error) {
 	if userID == uuid.Nil {
 		return nil, errors.New("user ID is required")
 	}
 	if lat < -90 || lat > 90 {
 		return nil, errors.New("invalid latitude")
 	}
-	if lon < -180 || lon > 180 {
+	if lng < -180 || lng > 180 {
 		return nil, errors.New("invalid longitude")
 	}
 
-	ping, err := s.repo.Upsert(ctx, userID, lat, lon)
+	ping, err := s.repo.Upsert(ctx, userID, lat, lng)
 	if err != nil {
 		slog.Error("failed to upsert location", "error", err, "user_id", userID)
 		return nil, err
@@ -46,7 +46,7 @@ func (s *service) UpdateLocation(ctx context.Context, userID uuid.UUID, lat, lon
 func (s *service) StartConsumer(ctx context.Context, incoming <-chan ws.LocationEvent, hub *ws.Hub) {
     go func() {
         for event := range incoming {
-            ping, err := s.UpdateLocation(ctx, event.UserID, event.Update.Lat, event.Update.Lon)
+            ping, err := s.UpdateLocation(ctx, event.UserID, event.Update.Lat, event.Update.Lng)
             if err != nil {
                 slog.Error("consumer failed to update location", "error", err, "user_id", event.UserID)
                 continue

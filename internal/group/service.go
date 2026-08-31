@@ -3,7 +3,6 @@ package group
 import (
 	"context"
 	"errors"
-	"log/slog"
 
 	"github.com/google/uuid"
 )
@@ -15,7 +14,7 @@ type Service interface {
 
 	AddMember(ctx context.Context, groupID, requesterID, newMemberID uuid.UUID) error
 	RemoveMember(ctx context.Context, groupID, requesterID, memberID uuid.UUID) error
-	ListMembers(ctx context.Context, groupID uuid.UUID) ([]uuid.UUID, error)
+	ListMembers(ctx context.Context, groupID uuid.UUID) ([]MemberInfo, error)
 }
 
 type service struct {
@@ -41,12 +40,9 @@ func (s *service) CreateGroup(ctx context.Context, name string, ownerID uuid.UUI
 	}
 
 	if err := s.repo.Create(ctx, g); err != nil {
-        slog.Error("failed to create group", "error", err, "owner_id", ownerID)
-        return nil, err
-    }
-
-    slog.Info("group created", "group_id", g.ID, "owner_id", ownerID)
-    return g, nil
+		return nil, err
+	}
+	return g, nil
 }
 
 func (s *service) GetGroup(ctx context.Context, id uuid.UUID) (*Group, error) {
@@ -68,18 +64,8 @@ func (s *service) AddMember(ctx context.Context, groupID, requesterID, newMember
 	if err != nil {
 		return err
 	}
-
 	if !isOwner {
 		return errors.New("only the group owner can add members")
-	}
-
-	members, err := s.repo.ListMembers(ctx, groupID)
-	if err != nil {
-		return err
-	}
-
-	if len(members) >= 20 {
-		return errors.New("Cant add more than 20 members")
 	}
 
 	alreadyMember, err := s.repo.IsMember(ctx, groupID, newMemberID)
@@ -90,13 +76,7 @@ func (s *service) AddMember(ctx context.Context, groupID, requesterID, newMember
 		return errors.New("user is already a member of this group")
 	}
 
-	if err := s.repo.AddMember(ctx, groupID, newMemberID); err != nil {
-        slog.Error("failed to add group member", "error", err, "group_id", groupID)
-        return err
-    }
-
-    slog.Info("member added to group", "group_id", groupID, "user_id", newMemberID, "added_by", requesterID)
-    return nil
+	return s.repo.AddMember(ctx, groupID, newMemberID)
 }
 
 func (s *service) RemoveMember(ctx context.Context, groupID, requesterID, memberID uuid.UUID) error {
@@ -116,7 +96,7 @@ func (s *service) RemoveMember(ctx context.Context, groupID, requesterID, member
 	return s.repo.RemoveMember(ctx, groupID, memberID)
 }
 
-func (s *service) ListMembers(ctx context.Context, groupID uuid.UUID) ([]uuid.UUID, error) {
+func (s *service) ListMembers(ctx context.Context, groupID uuid.UUID) ([]MemberInfo, error) {
 	if groupID == uuid.Nil {
 		return nil, errors.New("group ID is required")
 	}
